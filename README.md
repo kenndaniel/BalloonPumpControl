@@ -1,1 +1,2 @@
-Command line processing is not yet implemented.  The program is run as a batch file 
+Command line processing is not yet implemented.  The program is run as a batch file reading the desired pressure profile from two arrays. One array is for duration of the step. The second is for the end pressure of the step.
+WARNONG - All pressures are relative to the starting pressure.  If you start to fill a balloon and restart this program at any time, the pressur array will be added to the current pressure of the balloon.  To prevent this the bottle contain the pressur sensor must be opened when restarting the program.
