@@ -146,9 +146,6 @@ float setPointFunc()
 }
 
 // ********************************* Setup *****************************************************
-// Set pres0 to the value of press when the valves and/or top are open
-float pres0 = 0.;
-// void readCommand()
 
 bool pressureError = false;
 void setup()
@@ -167,12 +164,12 @@ void setup()
   Wire.requestFrom(MPU_addr, 14, true);
   Serial.println(" Setup start ");
 
-  Serial.println("Set initial atmospheric pressure to be subtracted from pressure measurements");
+  // Serial.println("Set initial atmospheric pressure to be subtracted from pressure measurements");
 
-  Serial.println(F("\nType: 'new' to indicate starting a new balloon with zero pressure\n"
-                 "Type 'restart' to indicate restarting with a partial pressure balloon\n"
-                 "If you type the wrong value, remove power, release the pressure, start again and select new\n"
-                 " Then quickly close all valves."));
+  // Serial.println(F("\nType: 'new' to indicate starting a new balloon with zero pressure\n"
+  //                "Type 'restart' to indicate restarting with a partial pressure balloon\n"
+  //                "If you type the wrong value, remove power, release the pressure, start again and select new\n"
+  //                " Then quickly close all valves."));
 
   bool validInput = false;
   // while (true)
@@ -209,6 +206,7 @@ void setup()
   int i;
   for (i = 0; i < ArraySize; ++i)
   { // set the initial set point
+    // If the balloon is partially pressureized find the starting index
     ip = i;
     if (setPoint[i] > press)
     {
@@ -222,6 +220,8 @@ void setup()
     pressureError = true;
   }
   pinMode(RELAY_PIN, OUTPUT);
+  pinMode(BALLOON_PRES, OUTPUT);
+  pinMode(ATMOS_PRES, OUTPUT);
   pinMode(LED_BUILTIN, OUTPUT);
 
   // set up times to switch
@@ -298,17 +298,17 @@ void loop()
     Serial.print(",");
     Serial.print(" Index ");
     Serial.println(ip);
-    Serial.println(previousOut); 
-    if ((currentOut + previousOut) < .1) 
-    {
-      Serial.println(iCnt);
-      iCnt++;
-      if( iCnt > 30)
-      {
-        ip++;
-        iCnt=0;
-      }
-     }
+    // Serial.println(previousOut); 
+    // if ((currentOut + previousOut) < .1) 
+    // {
+    //   Serial.println(iCnt);
+    //   iCnt++;
+    //   if( iCnt > 30)
+    //   {
+    //     ip++;
+    //     iCnt=0;
+    //   }
+    //  }
     previousOut = currentOut;
   }
   /************************************************
