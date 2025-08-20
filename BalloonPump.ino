@@ -15,13 +15,14 @@
  ********************************************************/
 #include <Arduino.h>
 #include <Wire.h>
-#include <EEPROM.h>
 #include <PID_v2.h>
+
+#define RELAY_PIN 6
+#define BALLOON_PRES 7
+#define ATMOS_PRES 8
+
 #include "BMP280_TempPres.h"
-// #include <string>
 using namespace std;
-// #include <SerialCommands.h>
-// #include "commands.h"
 
 // Gyro variables
 const int MPU_addr = 0x68;
@@ -34,8 +35,6 @@ double x;
 double y;
 double z;
 
-#define PIN_INPUT 0
-#define RELAY_PIN 6
 
 // Define Variables we'll be connecting to
 float setpoint;
@@ -89,7 +88,7 @@ float windowStartTime2 = 0;
 //
 //  TAKE THE CAP OFF THE BOTTLE WHEN STARTING UP TO CALIBRATE THE PRESSURE SENSOR TO ZERO
 //
-float Duration[ArraySize] =  {60, 60, 40, 40, 40, 40, 40, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30};                   
+float Duration[ArraySize] =  {60, 60, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40};                   
  // ramp duration in minutes
 float setPoint[ArraySize] = {.05, .1, .18, .21, .24, .26, .28, .30, .31,.32, .33, .34, .35, .36, .37, .38, .39, .40}; 
 //pressures in psi
@@ -176,28 +175,30 @@ void setup()
                  " Then quickly close all valves."));
 
   bool validInput = false;
-  while (true)
-  {
-    while (Serial.available() == 0)
-    {
-    }
-    String cmdInput = Serial.readString();
-    if (cmdInput.length() > 0)
-    {
-      if (cmdInput.startsWith(String('r')) )
-      { // Restarting a balloon with partial pressure
-        presSetup(true);
-        break;
-      }
-      else if (cmdInput.startsWith(String('n')) )
-      { // Stating from zero
-        presSetup(false);
-        break;
-      }
-    }
+  // while (true)
+  // {
+  //   while (Serial.available() == 0)
+  //   {
+  //   }
+  //   String cmdInput = Serial.readString();
+  //   if (cmdInput.length() > 0)
+  //   {
+  //     if (cmdInput.startsWith(String('r')) )
+  //     { // Restarting a balloon with partial pressure
+  //       readAtmosphericPressure();
+  //       break;
+  //     }
+  //     else if (cmdInput.startsWith(String('n')) )
+  //     { // Stating from zero
+  //       readAtmosphericPressure();
+  //       break;
+  //     }
+      
+  //   }
 
-    Serial.println("Please choose a valid selection either new or restart ");
-  }
+  //   Serial.println("Please choose a valid selection either new or restart ");
+  // }
+  readAtmosphericPressure();
 
   Serial.print(" The maximum pressure is set to  ");
   Serial.println(maxSetPoint);

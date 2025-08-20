@@ -7,9 +7,23 @@ BMP280_DEV bmp280;					// Instantiate (create) a BMP280_DEV object and set-up fo
 
 float zeroPres = 0; // Reset to the first pressure reading in presSetup() then used as bias error
 int eeAddress = 0;	// EEPROM address to start reading from
+bool BalloonPressure = false; // flag for mesuring the balloon pressure
+bool AtmosphericPressure = true; // flag for measuring the atmospheric pressure
 
-float pressure()
+
+float pressure(bool sensor = false)
 {
+	if (sensor == AtmosphericPressure)
+	{   // enable atmospheric pressure sensor
+		digitalWrite(BALLOON_PRES, LOW);
+		digitalWrite(ATMOS_PRES, HIGH);
+	}
+	else
+	{   // enable the balloon pressure sensor
+		digitalWrite(ATMOS_PRES, LOW);
+		digitalWrite(BALLOON_PRES, HIGH);
+	}
+	// Read the pressure from the BMP280 sensor
 	bool good = false;
 	bmp280.startForcedConversion();
 	for (int i = 0; i < 250; ++i)
@@ -36,27 +50,31 @@ float pressure()
 
 void presBegin()
 {
-	bmp280.begin(BMP280_I2C_ALT_ADDR); // Default initialisation, place the BMP280 into SLEEP_MODE
+	// initialize the atmospheric pressure sensor
+		digitalWrite(BALLOON_PRES, LOW);
+		digitalWrite(ATMOS_PRES, HIGH);
+	
+		bmp280.begin(BMP280_I2C_ALT_ADDR); // Default initialisation, place the BMP280 into SLEEP_MODE
 	// bmp280.setPresOversampling(OVERSAMPLING_X4);    // Set the pressure oversampling to X4
 	// bmp280.setTempOversampling(OVERSAMPLING_X1);    // Set the temperature oversampling to X1
 	// bmp280.setIIRFilter(IIR_FILTER_4);
 	// float press = pressure();             // Set the IIR filter to setting 4
 	// Serial.print(" Init ");Serial.println(press);
+
+	// Initialize the balloon pressure sensor
+		digitalWrite(ATMOS_PRES, LOW);
+		digitalWrite(BALLOON_PRES, HIGH);
+		bmp280.begin(BMP280_I2C_ALT_ADDR);
 }
 
-void presSetup(bool restart)
+void readAtmosphericPressure()
 {
+     // This must be called only once at the start of the program
 
-	if (restart)
-	{
-		EEPROM.get(eeAddress, zeroPres);
-	}
-	else
-	{
-		zeroPres = pressure();
-		EEPROM.put(eeAddress, zeroPres);
+		zeroPres = pressure(AtmosphericPressure);
+
 		Serial.println( "Atmospheric pressure has been set.");
-	}
+	
 
 	return; // set the zero pressure on setup
 }
