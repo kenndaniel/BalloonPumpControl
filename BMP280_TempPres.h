@@ -3,27 +3,15 @@
 #include <BMP280_DEV.h> // Include the BMP280_DEV.h library
 
 float temperature, press, altitude; // Create the temperature, pressure and altitude variables
-BMP280_DEV bmp280;					// Instantiate (create) a BMP280_DEV object and set-up for I2C operation (address 0x77)
+BMP280_DEV bmp280B;					// Instantiate (create) a BMP280_DEV object and set-up for I2C operation (address 0x77)
+BMP280_DEV bmp280Atm;	
 
 float zeroPres = 0; // Reset to the first pressure reading in presSetup() then used as bias error
 int eeAddress = 0;	// EEPROM address to start reading from
-bool BalloonPressure = false; // flag for mesuring the balloon pressure
-bool AtmosphericPressure = true; // flag for measuring the atmospheric pressure
 
-
-float pressure(bool sensor = false)
+float pressure()
 {
-	if (sensor == AtmosphericPressure)
-	{   // enable atmospheric pressure sensor
-		digitalWrite(BALLOON_PRES, LOW);
-		digitalWrite(ATMOS_PRES, HIGH);
-	}
-	else
-	{   // enable the balloon pressure sensor
-		digitalWrite(ATMOS_PRES, LOW);
-		digitalWrite(BALLOON_PRES, HIGH);
-	}
-	// Read the pressure from the BMP280 sensor
+	
 	bool good = false;
 	bmp280.startForcedConversion();
 	for (int i = 0; i < 250; ++i)
@@ -32,13 +20,13 @@ float pressure(bool sensor = false)
 
 		if (bmp280.getMeasurements(temperature, press, altitude)) // Check if the measurement is complete
 		{
-			// Serial.println();
-			// Serial.print(temperature);                    // Display the results
-			// Serial.print(F("*C   "));
-			// Serial.print(press);
-			// Serial.println(F("hPa   "));
-			// Serial.print(altitude);
-			// Serial.println(F("m"));
+			Serial.println("Balloon pressure reading");
+			Serial.print(temperature);                    // Display the results
+			Serial.print(F("*C   "));
+			Serial.print(press);
+			Serial.println(F("hPa   "));
+			Serial.print(altitude);
+			Serial.println(F("m"));
 			delay(100);
 			return (press) * 0.01450377 - zeroPres;
 		}
@@ -51,10 +39,8 @@ float pressure(bool sensor = false)
 void presBegin()
 {
 	// initialize the atmospheric pressure sensor
-		digitalWrite(BALLOON_PRES, LOW);
-		digitalWrite(ATMOS_PRES, HIGH);
 	
-		bmp280.begin(BMP280_I2C_ALT_ADDR); // Default initialisation, place the BMP280 into SLEEP_MODE
+	bmp280Atm.begin(); // Default initialisation, place the BMP280 into SLEEP_MODE
 	// bmp280.setPresOversampling(OVERSAMPLING_X4);    // Set the pressure oversampling to X4
 	// bmp280.setTempOversampling(OVERSAMPLING_X1);    // Set the temperature oversampling to X1
 	// bmp280.setIIRFilter(IIR_FILTER_4);
@@ -62,19 +48,37 @@ void presBegin()
 	// Serial.print(" Init ");Serial.println(press);
 
 	// Initialize the balloon pressure sensor
-		digitalWrite(ATMOS_PRES, LOW);
-		digitalWrite(BALLOON_PRES, HIGH);
-		bmp280.begin(BMP280_I2C_ALT_ADDR);
+
+	bmp280.begin(BMP280_I2C_ALT_ADDR);
 }
 
 void readAtmosphericPressure()
 {
      // This must be called only once at the start of the program
 
-		zeroPres = pressure(AtmosphericPressure);
+	 bool good = false;
+	bmp280Atm.startForcedConversion();
+	for (int i = 0; i < 250; ++i)
+	{
+		// Start BMP280 forced conversion (if we're in SLEEP_MODE)
 
-		Serial.println( "Atmospheric pressure has been set.");
-	
+		if (bmp280Atm.getMeasurements(temperature, press, altitude)) // Check if the measurement is complete
+		{
+			Serial.println("Atmospheric pressure reading");
+			Serial.print(temperature);                    // Display the results
+			Serial.print(F("*C   "));
+			Serial.print(press);
+			Serial.println(F("hPa   "));
+			Serial.print(altitude);
+			Serial.println(F("m"));
+			delay(100);
+			zeroPres = (press) * 0.01450377 ; // Set the zero pressure
+			return (zeroPres)  ;
+		}
+	}
+	Serial.println(" BMP 280Atm is humg *********************");
+	return 0.;
+
 
 	return; // set the zero pressure on setup
 }
