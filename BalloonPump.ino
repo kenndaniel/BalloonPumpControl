@@ -285,13 +285,13 @@ void loop()
     printAngle();
     previousMillis = currentMillis;
     Serial.print(" Setpoint ");
-    Serial.print(setpoint);
+    Serial.print(setpoint*100);
     Serial.print(",");
     Serial.print(" Pump ");
     Serial.print(output / 300.);
     Serial.print(",");
     Serial.print(" Pressure ");
-    Serial.print(press);
+    Serial.print(press*100);
     Serial.print(",");
     Serial.print(" Time ");
     Serial.print(currentMillis / (1000. * 3600.));

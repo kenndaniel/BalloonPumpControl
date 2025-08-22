@@ -3,7 +3,7 @@
 #include <BMP280_DEV.h> // Include the BMP280_DEV.h library
 
 float temperature, press, altitude; // Create the temperature, pressure and altitude variables
-BMP280_DEV bmp280B;					// Instantiate (create) a BMP280_DEV object and set-up for I2C operation (address 0x77)
+BMP280_DEV bmp280;					// Instantiate (create) a BMP280_DEV object and set-up for I2C operation (address 0x77)
 BMP280_DEV bmp280Atm;	
 
 float zeroPres = 0; // Reset to the first pressure reading in presSetup() then used as bias error
@@ -21,12 +21,12 @@ float pressure()
 		if (bmp280.getMeasurements(temperature, press, altitude)) // Check if the measurement is complete
 		{
 			Serial.println("Balloon pressure reading");
-			Serial.print(temperature);                    // Display the results
-			Serial.print(F("*C   "));
-			Serial.print(press);
-			Serial.println(F("hPa   "));
-			Serial.print(altitude);
-			Serial.println(F("m"));
+			// Serial.print(temperature);                    // Display the results
+			//Serial.print(F("*C   "));
+			//Serial.print(press);
+			//Serial.println(F("hPa   "));
+			//Serial.print(altitude);
+			//Serial.println(F("m"));
 			delay(100);
 			return (press) * 0.01450377 - zeroPres;
 		}
@@ -65,14 +65,16 @@ void readAtmosphericPressure()
 		if (bmp280Atm.getMeasurements(temperature, press, altitude)) // Check if the measurement is complete
 		{
 			Serial.println("Atmospheric pressure reading");
-			Serial.print(temperature);                    // Display the results
-			Serial.print(F("*C   "));
+			//Serial.print(temperature);                    // Display the results
+			//Serial.print(F("*C   "));
 			Serial.print(press);
-			Serial.println(F("hPa   "));
-			Serial.print(altitude);
-			Serial.println(F("m"));
+			Serial.print(F("hPa   "));
+			//Serial.print(altitude);
+			//Serial.println(F("m"));
 			delay(100);
 			zeroPres = (press) * 0.01450377 ; // Set the zero pressure
+			Serial.print(zeroPres*100.);
+			Serial.println(F("psi  "));
 			return (zeroPres)  ;
 		}
 	}
