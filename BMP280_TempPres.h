@@ -20,7 +20,7 @@ float pressure()
 
 		if (bmp280.getMeasurements(temperature, press, altitude)) // Check if the measurement is complete
 		{
-			Serial.println("Balloon pressure reading");
+			//Serial.println("Balloon pressure reading");
 			// Serial.print(temperature);                    // Display the results
 			//Serial.print(F("*C   "));
 			//Serial.print(press);
@@ -28,7 +28,10 @@ float pressure()
 			//Serial.print(altitude);
 			//Serial.println(F("m"));
 			delay(100);
-			return (press) * 0.01450377 - zeroPres;
+			float pressure =(press) * 0.01450377 - zeroPres;
+			if (pressure < 0.)
+				pressure = 0.;
+			return (pressure);
 		}
 	}
 	Serial.println(" BMP 280 is humg *********************");

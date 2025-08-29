@@ -67,10 +67,10 @@ float readAngle()
 }
 
 float setPointAngle = 183.3;  // smaller numbers make a larger balloon
-void printAngle()
+float printAngle()
 {
-    Serial.print("Angle % ");
-    Serial.print(100.*readAngle()/setPointAngle);
+  // return percentage of setpoint
+    return (100.*readAngle()/setPointAngle);
 }
 
 
@@ -90,9 +90,9 @@ float windowStartTime2 = 0;
 //
 float Duration[ArraySize] =  {60, 60, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40};                   
  // ramp duration in minutes
-float setPoint[ArraySize] = {.05, .1, .18, .21, .24, .26, .28, .30, .31,.32, .33, .34, .35, .36, .37, .38, .39, .40}; 
+float setPoint[ArraySize] = {.1, .12, .18, .21, .24, .26, .28, .30, .31,.32, .33, .34, .35, .36, .37, .38, .39, .40}; 
 //pressures in psi
-float Times[ArraySize];
+float Times[ArraySize+1]; // start times measured from boot time in minutes
 int ip = 0; // set ip to the starting index for restarts
 
 // Upper limit for any setpoint -
@@ -109,26 +109,39 @@ float setPointFunc()
 
   if (firstTime == true)
   {
-    float windowStartTime2 = (float)((millis() - windowStartTime2) / 1000ul) / 60.;
+    windowStartTime2 = (float)(millis()  / 1000ul) / 60.;
+      // set up times to switch
+    Times[0] = windowStartTime2;
+    for (int i = 0; i < ArraySize ; ++i)
+    {
+      Times[i + 1] = Times[i] + Duration[i  ];
+    }
+    if (ip > 0)
+    { // if restating with a partial balloon pressure
+      windowStartTime2 = Times[ip-1];
+    }
+    Serial.println(" ip "+String(ip) );
+    Serial.println(" windowStartTime2 "+String(windowStartTime2) );
+    Serial.println(" Times " +String(Times[ip]) );
     firstTime = false;
   }
-  float timeMinute = (float)((millis() - windowStartTime2) / 1000ul) / 60.;
+  float currentTime = (float)(millis()  / 1000ul) / 60.;
+  // Serial.println(" currentTime "+String(currentTime) );
+  float timeMinute = currentTime + windowStartTime2;
+  // Serial.println(" timeMinute "+String(timeMinute) );
+  // Serial.println(" windowStartTime2 "+String(windowStartTime2) );
 
   float setptm = setPoint[ip];
-  float timeSwitch = 0;
   if (timeMinute > Times[ip])
   {
 
-    timeSwitch = timeMinute;
     ip++;
   }
-  else if (ip > 0 && timeMinute < Times[ip - 1]) // Happens when restarting with ip > 0
-  {
-    timeMinute = Times[ip - 1];
-  }
-  if (ip == ArraySize - 1)
+  
+  if (ip >= ArraySize - 1)
   {
     setptm = setPoint[ArraySize - 1];
+    ip = ArraySize - 1; // Set the index to the last element
   }
   else if (ip == 0)
   {
@@ -142,6 +155,9 @@ float setPointFunc()
   if (setptm > maxSetPoint)
     setptm = maxSetPoint;
 
+  // Serial.println(" ip "+String(ip) );
+  // Serial.print(" Setpoint = ");
+  // Serial.println(setptm);
   return setptm;
 }
 
@@ -157,7 +173,8 @@ void setup()
   Wire.write(0);
   Wire.endTransmission(true);
 
-  presBegin();
+  presBegin();  // Start the pressure sensors
+  // Setup the gyro
   Wire.beginTransmission(MPU_addr);
   Wire.write(0x3B);
   Wire.endTransmission(false);
@@ -205,12 +222,14 @@ void setup()
   Serial.println(press);
   int i;
   for (i = 0; i < ArraySize; ++i)
-  { // set the initial set point
+  { // set the initial setpoint
     // If the balloon is partially pressureized find the starting index
     ip = i;
     if (setPoint[i] > press)
     {
-      ip = i - 1;
+      ip = i ;
+      Serial.print(" Starting Index = ");
+      Serial.println(ip);
       break;
     }
   }
@@ -220,18 +239,12 @@ void setup()
     pressureError = true;
   }
   pinMode(RELAY_PIN, OUTPUT);
-  pinMode(BALLOON_PRES, OUTPUT);
-  pinMode(ATMOS_PRES, OUTPUT);
   pinMode(LED_BUILTIN, OUTPUT);
 
-  // set up times to switch
-  Times[0] = Duration[ip];
-  for (int i = 0; i < ArraySize - 1 + ip; ++i)
-  {
-    Times[i + 1] = Times[i] + Duration[i + 1 + ip];
-  }
 
   setpt = setPointFunc();
+  Serial.print(" Initial Setpoint = ");
+  Serial.println(setpt);
 
   // tell the PID to range between 0 and the full window size
   // Serial.println(" PID start ");
@@ -246,74 +259,98 @@ void setup()
 //**************************** LOOP ****************************
 float input = 0.;
 unsigned long previousMillis = 0;
-unsigned long interval = 2000;
+unsigned long interval = 60000;  // interval to print in milliseconds
   float currentOut = 0.; 
   float previousOut = 0.;
-  int iCnt=0;
+  int iPnt=0, iCnt=0;  
+  float pressAvg =0, setPointAvg=0, outputAvg=0;
+  float angleAvg = 0;
+  bool stopping = false;
+  bool off = false;
   
 void loop()
 {
-
   if (pressureError == true)
     return;
-
-  float angle = readAngle();
- if (angle < setPointAngle)  // check the angle
-    {
-      maxSetPoint = setPoint[ip]; // decrease the pressure setpoint
-      iCnt--;
-      if (iCnt<0 ) iCnt=0;
-      digitalWrite(RELAY_PIN, LOW);
-      digitalWrite(LED_BUILTIN, LOW);
-      return;
-    }
-
   float press = pressure(); // Read the pressure
+  float angle = readAngle();
 
-  input = pmap(press); // Convert the reading
   setpoint = setPointFunc();
+  // Serial.print(" Loop Setpoint = ");
+  // Serial.println(setpoint);
+  
+  input = pmap(press); // Convert the reading
   float stpt = pmap(setpoint);
   float output = myPID.Run(input); // call the controller function
   myPID.Start(input,               // current input
               output,              // current output
-              stpt);               // setpoint
+              stpt);               // new setpoint
   unsigned long currentMillis = millis();
   currentOut = output/300.;
+
+  // average the output over the interval
+  outputAvg += currentOut;
+  setPointAvg += setpoint;
+  pressAvg += press;  
+  angleAvg += printAngle();
+  iPnt++;
+
   if (currentMillis - previousMillis >= interval)
   {
    
-    printAngle();
     previousMillis = currentMillis;
+    Serial.print(" Angle %  ");
+    Serial.print(angleAvg/iPnt);
+    Serial.print(",");
     Serial.print(" Setpoint ");
-    Serial.print(setpoint*100);
+    Serial.print(setPointAvg*100/iPnt);
     Serial.print(",");
     Serial.print(" Pump ");
-    Serial.print(output / 300.);
+    Serial.print(outputAvg/iPnt);
     Serial.print(",");
     Serial.print(" Pressure ");
-    Serial.print(press*100);
+    Serial.print(pressAvg*100/iPnt);
+    Serial.print(" Temperature ");
+    Serial.print(temperature);
     Serial.print(",");
     Serial.print(" Time ");
     Serial.print(currentMillis / (1000. * 3600.));
     Serial.print(",");
     Serial.print(" Index ");
     Serial.println(ip);
-    // Serial.println(previousOut); 
-    // if ((currentOut + previousOut) < .1) 
-    // {
-    //   Serial.println(iCnt);
-    //   iCnt++;
-    //   if( iCnt > 30)
-    //   {
-    //     ip++;
-    //     iCnt=0;
-    //   }
-    //  }
+
+     if ((angleAvg/iPnt) < 100. && stopping == false)  // check the angle
+    { // Balloon is done stretching
+      Serial.println(" Balloon is done stretching - stopping inflation");
+      maxSetPoint = .3; // decrease the pressure setpoint
+      digitalWrite(RELAY_PIN, LOW);
+      digitalWrite(LED_BUILTIN, LOW);
+      Serial.print("**** Pressure ");
+      Serial.println(press);
+      interval = 5*60000; // slow down the output
+      stopping = true;
+    }
+
+    pressAvg =0; setPointAvg=0; outputAvg=0;
+    angleAvg = 0; iPnt=0;
     previousOut = currentOut;
+
+    // if (stopping == true)
+    // {
+    //   if (pressAvg/iPnt < .35)
+    //   { // the pressure is low enough to turn off the pump
+    //     Serial.println(" Pressure is low enough to turn off the pump");
+    //     digitalWrite(RELAY_PIN, LOW);
+    //     digitalWrite(LED_BUILTIN, LOW);
+    //     off = true;
+    //   }
+    // }
   }
   /************************************************
    * turn the output pin on/off based on pid output
    ************************************************/
+  //if (off == true) output = 0.; // turn off the pump
+    
   while (millis() - windowStartTime > WindowSize)
   {
     // time to shift the Relay
