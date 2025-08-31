@@ -31,7 +31,7 @@ float pressure()
 			float pressure =(press) * 0.01450377 - zeroPres;
 			if (pressure < 0.)
 				pressure = 0.;
-			return (pressure);
+		return pressure;
 		}
 	}
 	Serial.println(" BMP 280 is humg *********************");
@@ -55,7 +55,7 @@ void presBegin()
 	bmp280.begin(BMP280_I2C_ALT_ADDR);
 }
 
-void readAtmosphericPressure()
+float readAtmosphericPressure()
 {
      // This must be called only once at the start of the program
 
@@ -78,14 +78,12 @@ void readAtmosphericPressure()
 			zeroPres = (press) * 0.01450377 ; // Set the zero pressure
 			Serial.print(zeroPres*100.);
 			Serial.println(F("psi  "));
-			return (zeroPres)  ;
+			return zeroPres;
 		}
 	}
 	Serial.println(" BMP 280Atm is humg *********************");
 	return 0.;
 
-
-	return; // set the zero pressure on setup
 }
 // void presSetup()
 // {
