@@ -101,6 +101,7 @@ void stop()
   digitalWrite(LED_BUILTIN, LOW);
   Serial.print("**** Setpoint is reduced to " + String(maxSetPoint) + " **** Current Pressure ");
   Serial.println(press);
+  Serial.println("**** Output frequency 15 minutes ****");
   interval = 5 * 60000; // slow down the output
   stopping = true;
 }
@@ -246,7 +247,7 @@ void setup()
   if (i == ArraySize)
   {
     Serial.println("DANGER DANGER current pressure is too high - Something is wrong.");
-    pressureError = true;
+    stop();
   }
   pinMode(RELAY_PIN, OUTPUT);
   pinMode(LED_BUILTIN, OUTPUT);
@@ -279,8 +280,6 @@ bool off = false;
 
 void loop()
 {
-  if (pressureError == true)
-    return;
   float press = pressure(); // Read the pressure
   float angle = readAngle();
 
