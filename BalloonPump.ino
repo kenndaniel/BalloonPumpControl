@@ -93,8 +93,10 @@ int ip = 0;                 // set ip to the starting index for restarts
 // Upper limit for any setpoint -
 float maxSetPoint = .40;
 
+unsigned long interval = 60000; // interval to print in milliseconds
+
 void stop()
-{
+{ // Balloon is done stretching
   Serial.println(" Balloon is done stretching - stopping inflation");
   maxSetPoint = .25; // decrease the pressure setpoint
   digitalWrite(RELAY_PIN, LOW);
@@ -192,37 +194,7 @@ void setup()
   Wire.requestFrom(MPU_addr, 14, true);
   Serial.println(" Setup start ");
 
-  // Serial.println("Set initial atmospheric pressure to be subtracted from pressure measurements");
-
-  // Serial.println(F("\nType: 'new' to indicate starting a new balloon with zero pressure\n"
-  //                "Type 'restart' to indicate restarting with a partial pressure balloon\n"
-  //                "If you type the wrong value, remove power, release the pressure, start again and select new\n"
-  //                " Then quickly close all valves."));
-
   bool validInput = false;
-  // while (true)
-  // {
-  //   while (Serial.available() == 0)
-  //   {
-  //   }
-  //   String cmdInput = Serial.readString();
-  //   if (cmdInput.length() > 0)
-  //   {
-  //     if (cmdInput.startsWith(String('r')) )
-  //     { // Restarting a balloon with partial pressure
-  //       readAtmosphericPressure();
-  //       break;
-  //     }
-  //     else if (cmdInput.startsWith(String('n')) )
-  //     { // Stating from zero
-  //       readAtmosphericPressure();
-  //       break;
-  //     }
-
-  //   }
-
-  //   Serial.println("Please choose a valid selection either new or restart ");
-  // }
   readAtmosphericPressure();
 
   Serial.print(" The maximum pressure is set to  ");
@@ -269,7 +241,6 @@ void setup()
 //**************************** LOOP ****************************
 float input = 0.;
 unsigned long previousMillis = 0;
-unsigned long interval = 60000; // interval to print in milliseconds
 float currentOut = 0.;
 float previousOut = 0.;
 int iPnt = 0, iCnt = 0;
