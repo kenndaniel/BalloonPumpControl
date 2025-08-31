@@ -225,7 +225,30 @@ void setup()
     Serial.println("DANGER DANGER current pressure is too high - Something is wrong.");
     stop();
   }
+  Serial.println(" Waiting for inpur - Type 'm' to measure angle  or 'c' to continue from current pressure");
+  while (true)
+  {
+    while (Serial.available() == 0)
+    {
+    }
+    String cmdInput = Serial.readString();
+    if (cmdInput.length() > 0)
+    {
+      if (cmdInput.startsWith(String('c')) )
+      { // Restarting a balloon with partial pressure
+        readAtmosphericPressure();
+        break;
+      }
+      else if (cmdInput.startsWith(String('m')) )
+      { // Measuring angle
+        stop();
+        break;
+      }
 
+    }
+
+    Serial.println("Please choose a valid selection either new or restart ");
+  }
   setpt = setPointFunc();
   Serial.print(" Initial Setpoint = ");
   Serial.println(setpt);
