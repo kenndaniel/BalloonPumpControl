@@ -35,7 +35,6 @@ double x;
 double y;
 double z;
 
-
 // Define Variables we'll be connecting to
 float setpoint;
 
@@ -46,7 +45,7 @@ int WindowSize = 250;
 unsigned long windowStartTime;
 
 float readAngle()
-{ 
+{
   Wire.beginTransmission(MPU_addr);
   Wire.write(0x3B);
   Wire.endTransmission(false);
@@ -62,18 +61,15 @@ float readAngle()
   y = RAD_TO_DEG * (atan2(-xAng, -zAng) + PI);
   z = RAD_TO_DEG * (atan2(-yAng, -xAng) + PI);
 
-
   return x;
 }
 
-float setPointAngle = 183.3;  // smaller numbers make a larger balloon
+float setPointAngle = 183.3; // smaller numbers make a larger balloon
 float printAngle()
 {
   // return percentage of setpoint
-    return (100.*readAngle()/setPointAngle);
+  return (100. * readAngle() / setPointAngle);
 }
-
-
 
 float plow = 0, phigh = .40, lowo = 0, higho = 1080;
 
@@ -88,15 +84,26 @@ float windowStartTime2 = 0;
 //
 //  TAKE THE CAP OFF THE BOTTLE WHEN STARTING UP TO CALIBRATE THE PRESSURE SENSOR TO ZERO
 //
-float Duration[ArraySize] =  {60, 60, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40};                   
- // ramp duration in minutes
-float setPoint[ArraySize] = {.1, .12, .18, .21, .24, .26, .28, .30, .31,.32, .33, .34, .35, .36, .37, .38, .39, .40}; 
-//pressures in psi
-float Times[ArraySize+1]; // start times measured from boot time in minutes
-int ip = 0; // set ip to the starting index for restarts
-
+float Duration[ArraySize] = {60, 60, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40};
+// ramp duration in minutes
+float setPoint[ArraySize] = {.1, .12, .18, .21, .24, .26, .28, .30, .31, .32, .33, .34, .35, .36, .37, .38, .39, .40};
+// pressures in psi
+float Times[ArraySize + 1]; // start times measured from boot time in minutes
+int ip = 0;                 // set ip to the starting index for restarts
 // Upper limit for any setpoint -
 float maxSetPoint = .40;
+
+void stop()
+{
+  Serial.println(" Balloon is done stretching - stopping inflation");
+  maxSetPoint = .25; // decrease the pressure setpoint
+  digitalWrite(RELAY_PIN, LOW);
+  digitalWrite(LED_BUILTIN, LOW);
+  Serial.print("**** Setpoint is reduced to " + String(maxSetPoint) + " **** Current Pressure ");
+  Serial.println(press);
+  interval = 5 * 60000; // slow down the output
+  stopping = true;
+}
 
 float startPoint = .0;
 double setpt;
@@ -109,23 +116,23 @@ float setPointFunc()
 
   if (firstTime == true)
   {
-    windowStartTime2 = (float)(millis()  / 1000ul) / 60.;
-      // set up times to switch
+    windowStartTime2 = (float)(millis() / 1000ul) / 60.;
+    // set up times to switch
     Times[0] = windowStartTime2;
-    for (int i = 0; i < ArraySize ; ++i)
+    for (int i = 0; i < ArraySize; ++i)
     {
-      Times[i + 1] = Times[i] + Duration[i  ];
+      Times[i + 1] = Times[i] + Duration[i];
     }
     if (ip > 0)
     { // if restating with a partial balloon pressure
-      windowStartTime2 = Times[ip-1];
+      windowStartTime2 = Times[ip - 1];
     }
-    Serial.println(" ip "+String(ip) );
-    Serial.println(" windowStartTime2 "+String(windowStartTime2) );
-    Serial.println(" Times " +String(Times[ip]) );
+    Serial.println(" ip " + String(ip));
+    Serial.println(" windowStartTime2 " + String(windowStartTime2));
+    Serial.println(" Times " + String(Times[ip]));
     firstTime = false;
   }
-  float currentTime = (float)(millis()  / 1000ul) / 60.;
+  float currentTime = (float)(millis() / 1000ul) / 60.;
   // Serial.println(" currentTime "+String(currentTime) );
   float timeMinute = currentTime + windowStartTime2;
   // Serial.println(" timeMinute "+String(timeMinute) );
@@ -137,7 +144,7 @@ float setPointFunc()
 
     ip++;
   }
-  
+
   if (ip >= ArraySize - 1)
   {
     setptm = setPoint[ArraySize - 1];
@@ -153,7 +160,10 @@ float setPointFunc()
   }
 
   if (setptm > maxSetPoint)
+  {
     setptm = maxSetPoint;
+    stop();
+  }
 
   // Serial.println(" ip "+String(ip) );
   // Serial.print(" Setpoint = ");
@@ -173,7 +183,7 @@ void setup()
   Wire.write(0);
   Wire.endTransmission(true);
 
-  presBegin();  // Start the pressure sensors
+  presBegin(); // Start the pressure sensors
   // Setup the gyro
   Wire.beginTransmission(MPU_addr);
   Wire.write(0x3B);
@@ -207,7 +217,7 @@ void setup()
   //       readAtmosphericPressure();
   //       break;
   //     }
-      
+
   //   }
 
   //   Serial.println("Please choose a valid selection either new or restart ");
@@ -227,7 +237,7 @@ void setup()
     ip = i;
     if (setPoint[i] > press)
     {
-      ip = i ;
+      ip = i;
       Serial.print(" Starting Index = ");
       Serial.println(ip);
       break;
@@ -240,7 +250,6 @@ void setup()
   }
   pinMode(RELAY_PIN, OUTPUT);
   pinMode(LED_BUILTIN, OUTPUT);
-
 
   setpt = setPointFunc();
   Serial.print(" Initial Setpoint = ");
@@ -259,15 +268,15 @@ void setup()
 //**************************** LOOP ****************************
 float input = 0.;
 unsigned long previousMillis = 0;
-unsigned long interval = 60000;  // interval to print in milliseconds
-  float currentOut = 0.; 
-  float previousOut = 0.;
-  int iPnt=0, iCnt=0;  
-  float pressAvg =0, setPointAvg=0, outputAvg=0;
-  float angleAvg = 0;
-  bool stopping = false;
-  bool off = false;
-  
+unsigned long interval = 60000; // interval to print in milliseconds
+float currentOut = 0.;
+float previousOut = 0.;
+int iPnt = 0, iCnt = 0;
+float pressAvg = 0, setPointAvg = 0, outputAvg = 0;
+float angleAvg = 0;
+bool stopping = false;
+bool off = false;
+
 void loop()
 {
   if (pressureError == true)
@@ -278,7 +287,7 @@ void loop()
   setpoint = setPointFunc();
   // Serial.print(" Loop Setpoint = ");
   // Serial.println(setpoint);
-  
+
   input = pmap(press); // Convert the reading
   float stpt = pmap(setpoint);
   float output = myPID.Run(input); // call the controller function
@@ -286,30 +295,30 @@ void loop()
               output,              // current output
               stpt);               // new setpoint
   unsigned long currentMillis = millis();
-  currentOut = output/300.;
+  currentOut = output / 300.;
 
   // average the output over the interval
   outputAvg += currentOut;
   setPointAvg += setpoint;
-  pressAvg += press;  
+  pressAvg += press;
   angleAvg += printAngle();
   iPnt++;
 
   if (currentMillis - previousMillis >= interval)
   {
-   
+
     previousMillis = currentMillis;
     Serial.print(" Angle %  ");
-    Serial.print(angleAvg/iPnt);
+    Serial.print(angleAvg / iPnt);
     Serial.print(",");
     Serial.print(" Setpoint ");
-    Serial.print(setPointAvg*100/iPnt);
+    Serial.print(setPointAvg * 100 / iPnt);
     Serial.print(",");
     Serial.print(" Pump ");
-    Serial.print(outputAvg/iPnt);
+    Serial.print(outputAvg / iPnt);
     Serial.print(",");
     Serial.print(" Pressure ");
-    Serial.print(pressAvg*100/iPnt);
+    Serial.print(pressAvg * 100 / iPnt);
     Serial.print(" Temperature ");
     Serial.print(temperature);
     Serial.print(",");
@@ -319,20 +328,16 @@ void loop()
     Serial.print(" Index ");
     Serial.println(ip);
 
-     if ((angleAvg/iPnt) < 100. && stopping == false)  // check the angle
-    { // Balloon is done stretching
-      Serial.println(" Balloon is done stretching - stopping inflation");
-      maxSetPoint = .3; // decrease the pressure setpoint
-      digitalWrite(RELAY_PIN, LOW);
-      digitalWrite(LED_BUILTIN, LOW);
-      Serial.print("**** Pressure ");
-      Serial.println(press);
-      interval = 5*60000; // slow down the output
-      stopping = true;
+    if ((angleAvg / iPnt) < 100. && stopping == false) // check the angle
+    {                                                  // Balloon is done stretching
+      stop()
     }
 
-    pressAvg =0; setPointAvg=0; outputAvg=0;
-    angleAvg = 0; iPnt=0;
+    pressAvg = 0;
+    setPointAvg = 0;
+    outputAvg = 0;
+    angleAvg = 0;
+    iPnt = 0;
     previousOut = currentOut;
 
     // if (stopping == true)
@@ -349,8 +354,8 @@ void loop()
   /************************************************
    * turn the output pin on/off based on pid output
    ************************************************/
-  //if (off == true) output = 0.; // turn off the pump
-    
+  // if (off == true) output = 0.; // turn off the pump
+
   while (millis() - windowStartTime > WindowSize)
   {
     // time to shift the Relay
