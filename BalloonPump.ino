@@ -94,6 +94,7 @@ int ip = 0;                 // set ip to the starting index for restarts
 float maxSetPoint = .40;
 
 unsigned long interval = 60000; // interval to print in milliseconds
+bool stopping = false;
 
 void stop()
 { // Balloon is done stretching
@@ -179,6 +180,9 @@ float setPointFunc()
 bool pressureError = false;
 void setup()
 {
+  pinMode(RELAY_PIN, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
+  
   Serial.begin(9600);
   Wire.begin();
   Wire.beginTransmission(MPU_addr);
@@ -221,8 +225,6 @@ void setup()
     Serial.println("DANGER DANGER current pressure is too high - Something is wrong.");
     stop();
   }
-  pinMode(RELAY_PIN, OUTPUT);
-  pinMode(LED_BUILTIN, OUTPUT);
 
   setpt = setPointFunc();
   Serial.print(" Initial Setpoint = ");
@@ -246,7 +248,6 @@ float previousOut = 0.;
 int iPnt = 0, iCnt = 0;
 float pressAvg = 0, setPointAvg = 0, outputAvg = 0;
 float angleAvg = 0;
-bool stopping = false;
 bool off = false;
 
 void loop()
@@ -276,7 +277,6 @@ void loop()
 
   if (currentMillis - previousMillis >= interval)
   {
-
     previousMillis = currentMillis;
     Serial.print(" Angle %  ");
     Serial.print(angleAvg / iPnt);
@@ -298,9 +298,9 @@ void loop()
     Serial.print(" Index ");
     Serial.println(ip);
 
-    if ((angleAvg / iPnt) < 100. && stopping == false) // check the angle
-    {                                                  // Balloon is done stretching
-      stop()
+    if ((angleAvg / iPnt) < 100. ) // check the angle
+    {  // Balloon is done stretching
+      stop();
     }
 
     pressAvg = 0;
@@ -310,16 +310,7 @@ void loop()
     iPnt = 0;
     previousOut = currentOut;
 
-    // if (stopping == true)
-    // {
-    //   if (pressAvg/iPnt < .35)
-    //   { // the pressure is low enough to turn off the pump
-    //     Serial.println(" Pressure is low enough to turn off the pump");
-    //     digitalWrite(RELAY_PIN, LOW);
-    //     digitalWrite(LED_BUILTIN, LOW);
-    //     off = true;
-    //   }
-    // }
+    
   }
   /************************************************
    * turn the output pin on/off based on pid output
