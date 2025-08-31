@@ -236,7 +236,6 @@ void setup()
     {
       if (cmdInput.startsWith(String('c')) )
       { // Restarting a balloon with partial pressure
-        readAtmosphericPressure();
         break;
       }
       else if (cmdInput.startsWith(String('m')) )
@@ -246,8 +245,7 @@ void setup()
       }
 
     }
-
-    Serial.println("Please choose a valid selection either new or restart ");
+    Serial.println("Please choose a valid selection either (m) measure angle or (c) continue from current pressure  ");
   }
   setpt = setPointFunc();
   Serial.print(" Initial Setpoint = ");
