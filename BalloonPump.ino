@@ -12,6 +12,8 @@
  * size.  lastly, we add some logic that translates the PID
  * output into "Relay On Time" with the remainder of the
  * window being "Relay Off Time"
+ * 
+ * Strain Rate Formulas https://chatgpt.com/share/68cd419c-bf04-800e-968f-11b4648e1c7a
  ********************************************************/
 #include <Arduino.h>
 #include <Wire.h>
