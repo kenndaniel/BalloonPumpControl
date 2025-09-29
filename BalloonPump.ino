@@ -13,7 +13,7 @@
  * output into "Relay On Time" with the remainder of the
  * window being "Relay Off Time"
  * 
- * Strain Rate Formulas https://chatgpt.com/share/68cd419c-bf04-800e-968f-11b4648e1c7a
+ * Strain Rate Formulas https://chatgpt.com/c/68da5972-59d0-8329-b226-97c9bb0c0c09
  ********************************************************/
 #include <Arduino.h>
 #include <Wire.h>
