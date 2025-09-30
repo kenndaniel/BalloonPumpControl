@@ -82,19 +82,19 @@ float pmap(float p)
 }
 
 float windowStartTime2 = 0;
-#define ArraySize 18
+#define ArraySize 23
 //
 //  TAKE THE CAP OFF THE BOTTLE WHEN STARTING UP TO CALIBRATE THE PRESSURE SENSOR TO ZERO
 //
 float Duration[ArraySize] = {60, 60, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40,40,40,40,40,40};
 // ramp duration in minutes
-float setPoint[ArraySize] = {.1, .12, .18, .21, .24, .26, .28, .30, .31, .32, .33, .34, .35, .36, .37, .38, .39, .40,
-.41,.42,.43,.44,.45}; // pressure setpoints in psi
+float setPoint[ArraySize] = {.1, .12, .18, .21, .24, .26, .28, .30, .31, .32, .33, .34, .35, .36, .37, .38, .39, .40,.41,.42,.43,.44,.45}; // pressure setpoints in psi
 // pressures in psi
 float Times[ArraySize + 1]; // start times measured from boot time in minutes
 int ip = 0;                 // set ip to the starting index for restarts
 // Upper limit for any setpoint -
 float maxSetPoint = .45;
+
 
 unsigned long interval = 60000; // interval to print in milliseconds
 bool stopping = false;
@@ -210,6 +210,12 @@ void setup()
   float press = pressure(); // Read the pressure
   Serial.print(" Current presure reading: press= ");
   Serial.println(press);
+
+  for (int i = 0; i < ArraySize; ++i)
+  {
+    Duration[i] *= .5;
+  }
+  
   int i;
   for (i = 0; i < ArraySize; ++i)
   { // set the initial setpoint
