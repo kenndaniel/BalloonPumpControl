@@ -107,7 +107,7 @@ void stop()
   digitalWrite(LED_BUILTIN, LOW);
   Serial.print("**** Setpoint is reduced to " + String(maxSetPoint) + " **** Current Pressure ");
   Serial.println(press);
-  Serial.println("**** Output frequency 15 minutes ****");
+  Serial.println("**** Output frequency 5 minutes ****");
   interval = 5 * 60000; // slow down the output
   stopping = true;
 }
@@ -213,7 +213,7 @@ void setup()
 
   for (int i = 0; i < ArraySize; ++i)
   {
-    Duration[i] *= .5;
+    Duration[i] *= .4;
   }
   
   int i;
