@@ -19,6 +19,9 @@
 #include <Wire.h>
 #include <PID_v2.h>
 
+#define EXHAUST_VALVE 4
+#define OPEN HIGH
+#define CLOSED LOW
 #define RELAY_PIN 6
 #define BALLOON_PRES 7
 #define ATMOS_PRES 8
@@ -84,8 +87,6 @@ float pmap(float p)
 float windowStartTime2 = 0;
 #define ArraySize 23
 //
-//  TAKE THE CAP OFF THE BOTTLE WHEN STARTING UP TO CALIBRATE THE PRESSURE SENSOR TO ZERO
-//
 float Duration[ArraySize] = {60, 60, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40,40,40,40,40,40};
 // ramp duration in minutes
 float setPoint[ArraySize] = {.1, .12, .18, .21, .24, .26, .28, .30, .31, .32, .33, .34, .35, .36, .37, .38, .39, .40,.41,.42,.43,.44,.45}; // pressure setpoints in psi
@@ -99,13 +100,25 @@ float maxSetPoint = .45;
 unsigned long interval = 60000; // interval to print in milliseconds
 bool stopping = false;
 
+void exhaust()
+{ // lower the pressure after stretching to check for leaks
+  float desiredPressure = .25;
+  while(pressure() >= desiredPressure )
+  {   
+    digitalWrite(EXHAUST_VALVE, OPEN);
+    delay(5000);
+  }
+  digitalWrite(EXHAUST_VALVE, CLOSED);
+}
+
 void stop()
 { // Balloon is done stretching
   Serial.println(" Balloon is done stretching - stopping inflation");
-  maxSetPoint = .25; // decrease the pressure setpoint
+  maxSetPoint = .20; // decrease the pressure setpoint
   digitalWrite(RELAY_PIN, LOW);
   digitalWrite(LED_BUILTIN, LOW);
-  Serial.print("**** Setpoint is reduced to " + String(maxSetPoint) + " **** Current Pressure ");
+  exhaust(); // reduce pressure and watch for leaks
+  Serial.print( " **** Current Pressure ");
   Serial.println(press);
   Serial.println("**** Output frequency 5 minutes ****");
   interval = 5 * 60000; // slow down the output
@@ -183,9 +196,11 @@ float setPointFunc()
 bool pressureError = false;
 void setup()
 {
+  pinMode(EXHAUST_VALVE, OUTPUT);
   pinMode(RELAY_PIN, OUTPUT);
-  pinMode(LED_BUILTIN, OUTPUT);
-  
+  pinMode(EXHAUST_VALVE, OUTPUT);
+  digitalWrite(EXHAUST_VALVE, CLOSED);
+
   Serial.begin(9600);
   Wire.begin();
   Wire.beginTransmission(MPU_addr);
@@ -194,7 +209,7 @@ void setup()
   Wire.endTransmission(true);
 
   presBegin(); // Start the pressure sensors
-  // Setup the gyro
+  // Setup the gyro (angle measurement)
   Wire.beginTransmission(MPU_addr);
   Wire.write(0x3B);
   Wire.endTransmission(false);
