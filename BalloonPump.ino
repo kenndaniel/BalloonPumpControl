@@ -12,7 +12,7 @@
  * size.  lastly, we add some logic that translates the PID
  * output into "Relay On Time" with the remainder of the
  * window being "Relay Off Time"
- * 
+ *
  * Strain Rate Formulas https://chatgpt.com/c/68da5972-59d0-8329-b226-97c9bb0c0c09
  ********************************************************/
 #include <Arduino.h>
@@ -87,15 +87,16 @@ float pmap(float p)
 float windowStartTime2 = 0;
 #define ArraySize 23
 //
-float Duration[ArraySize] = {60, 60, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40,40,40,40,40,40};
+//  TAKE THE CAP OFF THE BOTTLE WHEN STARTING UP TO CALIBRATE THE PRESSURE SENSOR TO ZERO
+//
+float Duration[ArraySize] = {60, 60, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40};
 // ramp duration in minutes
-float setPoint[ArraySize] = {.1, .12, .18, .21, .24, .26, .28, .30, .31, .32, .33, .34, .35, .36, .37, .38, .39, .40,.41,.42,.43,.44,.45}; // pressure setpoints in psi
+float setPoint[ArraySize] = {.1, .12, .18, .21, .24, .26, .28, .30, .31, .32, .33, .34, .35, .36, .37, .38, .39, .40, .41, .42, .43, .44, .45}; // pressure setpoints in psi
 // pressures in psi
 float Times[ArraySize + 1]; // start times measured from boot time in minutes
 int ip = 0;                 // set ip to the starting index for restarts
 // Upper limit for any setpoint -
 float maxSetPoint = .45;
-
 
 unsigned long interval = 60000; // interval to print in milliseconds
 bool stopping = false;
@@ -113,12 +114,21 @@ void exhaust()
 
 void stop()
 { // Balloon is done stretching
-  Serial.println(" Balloon is done stretching - stopping inflation");
-  maxSetPoint = .20; // decrease the pressure setpoint
-  digitalWrite(RELAY_PIN, LOW);
-  digitalWrite(LED_BUILTIN, LOW);
-  exhaust(); // reduce pressure and watch for leaks
-  Serial.print( " **** Current Pressure ");
+  Serial.println(" Balloon is done stretching - reducing pressure to .25 ");
+  maxSetPoint = .25;        // decrease the pressure setpoint
+  float press = pressure(); // Read the pressure
+  while (press >= -1)
+  {
+    digitalWrite(RELAY_PIN, HIGH);  // open exhaust valve
+    digitalWrite(LED_BUILTIN, HIGH);
+    delay(10000);
+    digitalWrite(RELAY_PIN, LOW);  
+    digitalWrite(LED_BUILTIN, LOW);
+    delay(4000);     // let the pressure equilibrate
+    press = pressure();
+    Serial.println(press);
+  }
+  Serial.print("**** Setpoint is reduced to " + String(maxSetPoint) + " **** Current Pressure ");
   Serial.println(press);
   Serial.println("**** Output frequency 5 minutes ****");
   interval = 5 * 60000; // slow down the output
@@ -198,8 +208,7 @@ void setup()
 {
   pinMode(EXHAUST_VALVE, OUTPUT);
   pinMode(RELAY_PIN, OUTPUT);
-  pinMode(EXHAUST_VALVE, OUTPUT);
-  digitalWrite(EXHAUST_VALVE, CLOSED);
+  pinMode(LED_BUILTIN, OUTPUT);
 
   Serial.begin(9600);
   Wire.begin();
@@ -230,7 +239,7 @@ void setup()
   {
     Duration[i] *= .4;
   }
-  
+
   int i;
   for (i = 0; i < ArraySize; ++i)
   { // set the initial setpoint
@@ -258,16 +267,15 @@ void setup()
     String cmdInput = Serial.readString();
     if (cmdInput.length() > 0)
     {
-      if (cmdInput.startsWith(String('c')) )
+      if (cmdInput.startsWith(String('c')))
       { // Restarting a balloon with partial pressure
         break;
       }
-      else if (cmdInput.startsWith(String('m')) )
+      else if (cmdInput.startsWith(String('m')))
       { // Measuring angle
         stop();
         break;
       }
-
     }
     Serial.println("Please choose a valid selection either (m) measure angle or (c) continue from current pressure  ");
   }
@@ -297,6 +305,7 @@ bool off = false;
 
 void loop()
 {
+  stop();
   float press = pressure(); // Read the pressure
   float angle = readAngle();
 
@@ -343,8 +352,8 @@ void loop()
     Serial.print(" Index ");
     Serial.println(ip);
 
-    if ((angleAvg / iPnt) < 100. ) // check the angle
-    {  // Balloon is done stretching
+    if ((angleAvg / iPnt) < 100.) // check the angle
+    {                             // Balloon is done stretching
       stop();
     }
 
@@ -354,8 +363,6 @@ void loop()
     angleAvg = 0;
     iPnt = 0;
     previousOut = currentOut;
-
-    
   }
   /************************************************
    * turn the output pin on/off based on pid output
