@@ -305,7 +305,6 @@ bool off = false;
 
 void loop()
 {
-  stop();
   float press = pressure(); // Read the pressure
   float angle = readAngle();
 
