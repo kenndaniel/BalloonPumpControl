@@ -119,12 +119,12 @@ void stop()
   float press = pressure(); // Read the pressure
   while (press >= -1)
   {
-    digitalWrite(RELAY_PIN, HIGH);  // open exhaust valve
+    digitalWrite(RELAY_PIN, HIGH);  // Open exhaust valve
     digitalWrite(LED_BUILTIN, HIGH);
     delay(10000);
     digitalWrite(RELAY_PIN, LOW);  
     digitalWrite(LED_BUILTIN, LOW);
-    delay(4000);     // let the pressure equilibrate
+    delay(4000);     // Let the pressure equilibrate
     press = pressure();
     Serial.println(press);
   }
