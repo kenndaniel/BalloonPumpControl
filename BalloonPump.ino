@@ -223,7 +223,7 @@ void setup()
   Wire.write(0x3B);
   Wire.endTransmission(false);
   Wire.requestFrom(MPU_addr, 14, true);
-  Serial.println(" Setup start ");
+  Serial.println(" Setup start Version 2/2026 ");
 
   bool validInput = false;
   readAtmosphericPressure();
