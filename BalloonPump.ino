@@ -85,18 +85,22 @@ float pmap(float p)
 }
 
 float windowStartTime2 = 0;
-#define ArraySize 23
+#define ArraySize 39
 //
 //  TAKE THE CAP OFF THE BOTTLE WHEN STARTING UP TO CALIBRATE THE PRESSURE SENSOR TO ZERO
 //
-float Duration[ArraySize] = {60, 60, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40};
+float Duration[ArraySize] = {60, 60, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 
+  40, 40, 40, 40, 40, 40, 40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40};
 // ramp duration in minutes
-float setPoint[ArraySize] = {.1, .12, .18, .21, .24, .26, .28, .30, .31, .32, .33, .34, .35, .36, .37, .38, .39, .40, .41, .42, .43, .44, .45}; // pressure setpoints in psi
+float setPoint[ArraySize] = {.1, .12, .18, .21, .24, .26, .28, .30, .31, .32, .33, .34, .35, .36,
+   .37, .38, .39, .40, .41, .42, .43, .44, .45,.46,.47,.48,.49,.50,.51,.52,.53,.54,.55,.56,.57,.58,.59,.60,.61}; // pressure setpoints in psi
 // pressures in psi
 float Times[ArraySize + 1]; // start times measured from boot time in minutes
-int ip = 0;                 // set ip to the starting index for restarts
+int ip = 0;   
+float speedUp = .5; // factor to speed up filling by decreacing durations
+
 // Upper limit for any setpoint -
-float maxSetPoint = .45;
+float maxSetPoint = .58;
 
 unsigned long interval = 60000; // interval to print in milliseconds
 bool stopping = false;
@@ -112,17 +116,19 @@ void exhaust()
   digitalWrite(EXHAUST_VALVE, CLOSED);
 }
 
+
 void stop()
 { // Balloon is done stretching
+  if (stopping == true) return;
   Serial.println(" Balloon is done stretching - reducing pressure to .25 ");
   maxSetPoint = .25;        // decrease the pressure setpoint
   float press = pressure(); // Read the pressure
-  while (press >= -1)
+  while (press >= maxSetPoint)
   {
-    digitalWrite(RELAY_PIN, HIGH);  // Open exhaust valve
+    digitalWrite(EXHAUST_VALVE, HIGH);  // Open exhaust valve
     digitalWrite(LED_BUILTIN, HIGH);
     delay(10000);
-    digitalWrite(RELAY_PIN, LOW);  
+    digitalWrite(EXHAUST_VALVE, LOW);  
     digitalWrite(LED_BUILTIN, LOW);
     delay(4000);     // Let the pressure equilibrate
     press = pressure();
@@ -135,7 +141,7 @@ void stop()
   stopping = true;
 }
 
-float startPoint = .0;
+float startPoint = .18;
 double setpt;
 
 bool firstTime = true;
@@ -151,7 +157,7 @@ float setPointFunc()
     Times[0] = windowStartTime2;
     for (int i = 0; i < ArraySize; ++i)
     {
-      Times[i + 1] = Times[i] + Duration[i];
+      Times[i + 1] = Times[i] + Duration[i]*speedUp;
     }
     if (ip > 0)
     { // if restating with a partial balloon pressure
@@ -223,7 +229,7 @@ void setup()
   Wire.write(0x3B);
   Wire.endTransmission(false);
   Wire.requestFrom(MPU_addr, 14, true);
-  Serial.println(" Setup start Version 2/2026 ");
+  Serial.println(" Setup start Version 2/7/2026 ");
 
   bool validInput = false;
   readAtmosphericPressure();
@@ -277,6 +283,7 @@ void setup()
         break;
       }
     }
+    break;
     Serial.println("Please choose a valid selection either (m) measure angle or (c) continue from current pressure  ");
   }
   setpt = setPointFunc();
@@ -351,7 +358,7 @@ void loop()
     Serial.print(" Index ");
     Serial.println(ip);
 
-    if ((angleAvg / iPnt) < 100.) // check the angle
+    if ((angleAvg / iPnt) < 100. && stopping == false ) // check the size
     {                             // Balloon is done stretching
       stop();
     }
