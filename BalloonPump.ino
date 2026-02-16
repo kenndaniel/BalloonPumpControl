@@ -19,109 +19,44 @@
 #include <Wire.h>
 #include <PID_v2.h>
 
-#define EXHAUST_VALVE 4
-#define OPEN HIGH
-#define CLOSED LOW
-#define RELAY_PIN 6
-#define BALLOON_PRES 7
-#define ATMOS_PRES 8
+enum mode {FILLING, STRETCHING, HOLDING, EXHAUSTING, WAITING, MEASURING} ;
+mode MODE = FILLING;
 
+#define MEASURE_SET_POINT .25 // pressure setpoint when in MEASURING mode
+#define FILLED_ANGLE 183.3   // angle where filling will stop and exhaust begins
+
+//#define TESTING
 #include "BMP280_TempPres.h"
-using namespace std;
 
-// Gyro variables
-const int MPU_addr = 0x68;
-int16_t axis_X, axis_Y, axis_Z;
+#include "utilities.h"
 
-int minVal = 265;
-int maxVal = 402;
-
-double x;
-double y;
-double z;
-
-// Define Variables we'll be connecting to
-float setpoint;
-
-// Specify the initial tuning parameters
-double Kp = 20, Ki = .0, Kd = 0;
-PID_v2 myPID(Kp, Ki, Kd, PID::Direct);
-int WindowSize = 250;
-unsigned long windowStartTime;
-
-float readAngle()
+void restart()
 {
-  Wire.beginTransmission(MPU_addr);
-  Wire.write(0x3B);
-  Wire.endTransmission(false);
-  Wire.requestFrom(MPU_addr, 14, true);
-  axis_X = Wire.read() << 8 | Wire.read();
-  axis_Y = Wire.read() << 8 | Wire.read();
-  axis_Z = Wire.read() << 8 | Wire.read();
-  int xAng = map(axis_X, minVal, maxVal, -90, 90);
-  int yAng = map(axis_Y, minVal, maxVal, -90, 90);
-  int zAng = map(axis_Z, minVal, maxVal, -90, 90);
+  float press = pressure(); // Read the pressure
+  Serial.print(" Current presure reading: press= ");
+  Serial.println(press);
 
-  x = RAD_TO_DEG * (atan2(-yAng, -zAng) + PI);
-  y = RAD_TO_DEG * (atan2(-xAng, -zAng) + PI);
-  z = RAD_TO_DEG * (atan2(-yAng, -xAng) + PI);
-
-  return x;
-}
-
-float setPointAngle = 183.3; // smaller numbers make a larger balloon
-float printAngle()
-{
-  // return percentage of setpoint
-  return (100. *(1 - readAngle() / setPointAngle));
-}
-
-float plow = 0, phigh = .40, lowo = 0, higho = 1080;
-
-float pmap(float p)
-{ // Convert real world values (psi) to control variables
-  float remap = p * (higho - lowo) / (phigh - plow);
-  return remap;
-}
-
-float windowStartTime2 = 0;
-#define ArraySize 39
-//
-//  TAKE THE CAP OFF THE BOTTLE WHEN STARTING UP TO CALIBRATE THE PRESSURE SENSOR TO ZERO
-//
-float Duration[ArraySize] = {60, 60, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 
-  40, 40, 40, 40, 40, 40, 40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40};
-// ramp duration in minutes
-float setPoint[ArraySize] = {.1, .12, .18, .21, .24, .26, .28, .30, .31, .32, .33, .34, .35, .36,
-   .37, .38, .39, .40, .41, .42, .43, .44, .45,.46,.47,.48,.49,.50,.51,.52,.53,.54,.55,.56,.57,.58,.59,.60,.61}; // pressure setpoints in psi
-// pressures in psi
-float Times[ArraySize + 1]; // start times measured from boot time in minutes
-int ip = 0;   
-float speedUp = .5; // factor to speed up filling by decreacing durations
-
-// Upper limit for any setpoint -
-float maxSetPoint = .61;
-float measureSetPoint = .25; // pressure to measure the angle at - this is the point where the balloon is fully stretched and we can measure the angle to determine if the balloon is done stretching
-
-
-unsigned long interval = 60000; // interval to print in milliseconds
-bool stopping = false;
-
-void exhaust()
-{ // lower the pressure after stretching to check for leaks
-  float desiredPressure = .25;
-  while(pressure() >= desiredPressure )
-  {   
-    digitalWrite(EXHAUST_VALVE, OPEN);
-    delay(5000);
+  int i = 0;
+  for (i = 0; i < ArraySize; ++i)
+  { // set the initial setpoint
+    // If the balloon is partially pressureized find the starting index
+    ip = i;
+    if (setPoint[i] > press)
+    {
+      ip = i;
+      Serial.print(" Starting Index = ");
+      Serial.println(ip);
+      break;
+    }
   }
-  digitalWrite(EXHAUST_VALVE, CLOSED);
+  ip = i;
 }
 
+float stretchLimit = 190.; // when the angel is less than this, transition to filling
 
 void stop()
 { // Balloon is done stretching
-  if (stopping == true) return;
+  if (MODE == WAITING) return;
   Serial.println(" Balloon is done stretching - reducing pressure to .25 ");
   float press = pressure(); // Read the pressure
   while (press >= measureSetPoint)
@@ -139,78 +74,10 @@ void stop()
   Serial.println(press);
   Serial.println("**** Output frequency 5 minutes ****");
   interval = 5 * 60000; // slow down the output
-  stopping = true;
-}
+  MODE = WAITING; // pressure is down and waiting to pull out the tube
+  Serial.print( " Changing to ");
+  printMode();
 
-float startPoint = .18;
-double setpt;
-
-bool firstTime = true;
-float setPointFunc()
-{ // Ramp pressure up slowly
-  if (ip == ArraySize - 1)
-    return setPoint[ArraySize - 1];
-
-  if (stopping == true)
-  {
-    return measureSetPoint;
-  }
-
-  if (firstTime == true)
-  {
-    windowStartTime2 = (float)(millis() / 1000ul) / 60.;
-    // set up times to switch
-    Times[0] = windowStartTime2;
-    for (int i = 0; i < ArraySize; ++i)
-    {
-      Times[i + 1] = Times[i] + Duration[i]*speedUp;
-    }
-    if (ip > 0)
-    { // if restating with a partial balloon pressure
-      windowStartTime2 = Times[ip - 1];
-    }
-    Serial.println(" ip " + String(ip));
-    Serial.println(" windowStartTime2 " + String(windowStartTime2));
-    Serial.println(" Times " + String(Times[ip]));
-    firstTime = false;
-  }
-  float currentTime = (float)(millis() / 1000ul) / 60.;
-  // Serial.println(" currentTime "+String(currentTime) );
-  float timeMinute = currentTime + windowStartTime2;
-  // Serial.println(" timeMinute "+String(timeMinute) );
-  // Serial.println(" windowStartTime2 "+String(windowStartTime2) );
-
-  float setptm = setPoint[ip];
-  if (timeMinute > Times[ip])
-  {
-
-    ip++;
-  }
-
-  if (ip >= ArraySize - 1)
-  {
-    setptm = setPoint[ArraySize - 1];
-    ip = ArraySize - 1; // Set the index to the last element
-  }
-  else if (ip == 0)
-  {
-    setptm = setPoint[0];
-  }
-  else
-  {
-    setptm = setPoint[ip - 1] + (setPoint[ip] - setPoint[ip - 1]) * (1. - (Times[ip] - timeMinute) / (Times[ip] - Times[ip - 1]));
-  }
-
-  if (setptm > maxSetPoint)
-  {
-    setptm = maxSetPoint;
-    stop();
-  }
-
-  // Serial.println(" ip "+String(ip) );
-  // Serial.print(" Setpoint = ");
-  // Serial.println(setptm);
-  return setptm;
 }
 
 // ********************************* Setup *****************************************************
@@ -244,34 +111,17 @@ void setup()
   Serial.print(" The maximum pressure is set to  ");
   Serial.println(maxSetPoint);
 
-  float press = pressure(); // Read the pressure
-  Serial.print(" Current presure reading: press= ");
-  Serial.println(press);
-
-  for (int i = 0; i < ArraySize; ++i)
+   for (int i = 0; i < ArraySize; ++i)
   {
-    Duration[i] *= .4;
+    Duration[i] *= speedUp;
   }
-
-  int i;
-  for (i = 0; i < ArraySize; ++i)
-  { // set the initial setpoint
-    // If the balloon is partially pressureized find the starting index
-    ip = i;
-    if (setPoint[i] > press)
-    {
-      ip = i;
-      Serial.print(" Starting Index = ");
-      Serial.println(ip);
-      break;
-    }
-  }
-  if (i == ArraySize)
+  
+  if (ip == ArraySize)
   {
     Serial.println("DANGER DANGER current pressure is too high - Something is wrong.");
     stop();
   }
-  Serial.println(" Waiting for input - 'm' measure angle, 'c' to continue from current press 'e' to exhaust  ");
+  Serial.println(" Waiting for input - 'm' measure, 's' stretch 'e' to exhaust 'f' initial fill  ");
   while (true)
   {
     while (Serial.available() == 0)
@@ -280,26 +130,39 @@ void setup()
     String cmdInput = Serial.readString();
     if (cmdInput.length() > 0)
     {
-      if (cmdInput.startsWith(String('c')))
+      if (cmdInput.startsWith(String('s')))
       { // Restarting a balloon with partial pressure
+        MODE = STRETCHING;
         break;
       }
       else if (cmdInput.startsWith(String('e')))
       { // exhaust until measuringSetPoint to check for leaks
+        MODE = EXHAUSTING;
         stop(); // 
         break;
       }
       else if (cmdInput.startsWith(String('m')))
       { // Measuring angle
+        MODE = MEASURING;
+         Serial.print( " Changing to ");
+         printMode();
         off = true; // turn off the pump while measuring angle
         interval = 5 * 60000; // slow down the output
         break;
       }
+      else if (cmdInput.startsWith(String('f')))
+      { // initial filling
+        MODE = FILLING;
+        Serial.print( " Changing to ");
+        printMode();
+        break;
+      }
     }
     break;
-    Serial.println("Please choose a valid selection either (m) measure angle or (c) continue from current pressure  ");
+    Serial.println("Please choose a valid selection 'm' measure, 's' stretch 'e' to exhaust 'f' initial fill  ");
   }
-  setpt = setPointFunc();
+  printMode();
+  float setpt = setPointFunc();
   Serial.print(" Initial Setpoint = ");
   Serial.println(setpt);
 
@@ -326,6 +189,23 @@ void loop()
 {
   float press = pressure(); // Read the pressure
   float angle = readAngle();
+  Serial.println(press);
+
+    if (printAngle() > 0 ) // check the size
+    {    
+      MODE = EXHAUSTING;                         // Balloon is done stretching
+      Serial.print( " Changing to ");
+      printMode();
+      stop();
+    }
+
+  if ( angle < stretchLimit && MODE == FILLING) 
+  {
+    MODE = STRETCHING;
+    Serial.print( " Changing to ");
+    printMode();
+    restart();
+  }
 
   setpoint = setPointFunc();
   // Serial.print(" Loop Setpoint = ");
@@ -338,8 +218,10 @@ void loop()
               output,              // current output
               stpt);               // new setpoint
   unsigned long currentMillis = millis();
-  if (off == true) output = 0.; // turn off the pump
-  currentOut = output / 300.;
+
+  if (MODE == MEASURING) output = 0.; // turn off the pump
+ 
+  currentOut = output / WindowSize;
 
   // average the output over the interval
   outputAvg += currentOut;
@@ -369,12 +251,7 @@ void loop()
     Serial.print(currentMillis / (1000. * 3600.));
     Serial.print(",");
     Serial.print(" Index ");
-    Serial.println(ip);
-
-    if ((angleAvg / iPnt) < 100. && stopping == false ) // check the size
-    {                             // Balloon is done stretching
-      stop();
-    }
+    Serial.print(ip);
 
     pressAvg = 0;
     setPointAvg = 0;
@@ -394,6 +271,8 @@ void loop()
     windowStartTime += WindowSize;
   }
   float diff = (float)(millis() - windowStartTime);
+
+  if (MODE == FILLING) diff = -1.;
 
   if (output > diff)
   {

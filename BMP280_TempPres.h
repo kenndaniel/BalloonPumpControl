@@ -9,8 +9,35 @@ BMP280_DEV bmp280Atm;
 float zeroPres = 0; // Reset to the first pressure reading in presSetup() then used as bias error
 int eeAddress = 0;	// EEPROM address to start reading from
 
+int iSTP2 = 0;
+int iSTP1= 0;
+float systemTestPressure()
+{
+	iSTP1++;
+	iSTP2++;
+	if (MODE == FILLING)
+		return .26;
+	if (MODE == STRETCHING)
+	{
+		iSTP2 = 0;
+		return  .26 + (.63-.26)* iSTP1/200.;  // ramp up
+	}
+		if (MODE == EXHAUSTING)
+	{
+		return  .63 - (.63 - .1)* iSTP2/10.;  // ramp down
+	}
+		if (MODE == WAITING)
+	{
+		return  MEASURE_SET_POINT;
+	}	
+}
+
+
 float pressure()
 {
+	#ifdef TESTING
+	return systemTestPressure();
+	#endif
 	
 	bool good = false;
 	bmp280.startForcedConversion();
@@ -58,6 +85,9 @@ void presBegin()
 float readAtmosphericPressure()
 {
      // This must be called only once at the start of the program
+	 #ifdef TESTING
+	 return 0;
+	 #endif
 
 	 bool good = false;
 	bmp280Atm.startForcedConversion();
@@ -85,6 +115,7 @@ float readAtmosphericPressure()
 	return 0.;
 
 }
+
 // void presSetup()
 // {
 //   Serial.begin(9600);                           // Initialise the serial port
