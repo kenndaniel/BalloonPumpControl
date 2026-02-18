@@ -41,27 +41,27 @@ float pressure()
 	
 	bool good = false;
 	bmp280.startForcedConversion();
+
 	for (int i = 0; i < 250; ++i)
 	{
 		// Start BMP280 forced conversion (if we're in SLEEP_MODE)
-
+		delay(10); // wait for the conversion to complete
 		if (bmp280.getMeasurements(temperature, press, altitude)) // Check if the measurement is complete
 		{
 			//Serial.println("Balloon pressure reading");
 			// Serial.print(temperature);                    // Display the results
-			//Serial.print(F("*C   "));
-			//Serial.print(press);
-			//Serial.println(F("hPa   "));
-			//Serial.print(altitude);
-			//Serial.println(F("m"));
-			delay(100);
+			// Serial.print(F("*C   "));
+			// Serial.print(press);
+			// Serial.println(F("hPa   "));
+			// Serial.print(altitude);
+			// Serial.println(F("m"))
 			float pressure =(press) * 0.01450377 - zeroPres;
 			if (pressure < 0.)
 				pressure = 0.;
 		return pressure;
 		}
 	}
-	Serial.println(" BMP 280 is humg *********************");
+	Serial.println(" Balloon BMP 280 is humg *********************");
 	//bmp280.startForcedConversion();
 	return 0.;
 }
@@ -80,6 +80,7 @@ void presBegin()
 	// Initialize the balloon pressure sensor
 
 	bmp280.begin(BMP280_I2C_ALT_ADDR);
+	delay(5); // wait for the conversion to complete
 }
 
 float readAtmosphericPressure()
@@ -94,24 +95,23 @@ float readAtmosphericPressure()
 	for (int i = 0; i < 250; ++i)
 	{
 		// Start BMP280 forced conversion (if we're in SLEEP_MODE)
-
+		delay(10); // wait for the conversion to complete
 		if (bmp280Atm.getMeasurements(temperature, press, altitude)) // Check if the measurement is complete
 		{
-			Serial.println("Atmospheric pressure reading");
+			// Serial.println("Atmospheric pressure reading");
 			//Serial.print(temperature);                    // Display the results
 			//Serial.print(F("*C   "));
-			Serial.print(press);
-			Serial.print(F("hPa   "));
+			// Serial.print(press);
+			// Serial.print(F("hPa   "));
 			//Serial.print(altitude);
 			//Serial.println(F("m"));
-			delay(100);
 			zeroPres = (press) * 0.01450377 ; // Set the zero pressure
-			Serial.print(zeroPres*100.);
-			Serial.println(F("psi  "));
+			// Serial.print(zeroPres*100.);
+			// Serial.println(F("psi  "));
 			return zeroPres;
 		}
 	}
-	Serial.println(" BMP 280Atm is humg *********************");
+	Serial.println(" Atmospheric BMP 280Atm is humg *********************");
 	return 0.;
 
 }

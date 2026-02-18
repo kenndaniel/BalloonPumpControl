@@ -30,14 +30,14 @@ int WindowSize = 250;
 unsigned long windowStartTime;
 
 float windowStartTime2 = 0;
-#define ArraySize 39
+#define ArraySize 36
 //
 //  TAKE THE CAP OFF THE BOTTLE WHEN STARTING UP TO CALIBRATE THE PRESSURE SENSOR TO ZERO
 //
-float Duration[ArraySize] = {60, 60, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40,
+float Duration[ArraySize] = { 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40,
                              40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40};
 // ramp duration in minutes
-float setPoint[ArraySize] = {.1, .12, .18, .21, .24, .26, .28, .30, .31, .32, .33, .34, .35, .36,
+float setPoint[ArraySize] = {.21, .24, .26, .28, .30, .31, .32, .33, .34, .35, .36,
                              .37, .38, .39, .40, .41, .42, .43, .44, .45, .46, .47, .48, .49, .50, .51, .52, .53, .54, .55, .56, .57, .58, .59, .60, .61}; // pressure setpoints in psi
 // pressures in psi
 float Times[ArraySize + 1]; // start times measured from boot time in minutes
@@ -187,18 +187,18 @@ void printMode()
     switch (MODE)
     {
     case FILLING:
-      Serial.println("Fill");
+      Serial.println(" Filling");
       break;
     case STRETCHING:
-      Serial.println("Stretch");
+      Serial.println(" Stretching");
       break;
     case EXHAUSTING:
-      Serial.println("Exhaust");
+      Serial.println(" Exhaust");
       break;
     case WAITING:
-      Serial.println("Wait");
+      Serial.println(" Waiting");
       break;
     case MEASURING:
-      Serial.println("Measure");
+      Serial.println(" Measure");
     }
 }
