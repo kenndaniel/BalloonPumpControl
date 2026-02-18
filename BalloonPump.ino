@@ -19,13 +19,22 @@
 #include <Wire.h>
 #include <PID_v2.h>
 
-enum mode {FILLING, STRETCHING, HOLDING, EXHAUSTING, WAITING, MEASURING} ;
+enum mode
+{
+  FILLING,
+  STRETCHING,
+  HOLDING,
+  EXHAUSTING,
+  WAITING,
+  MEASURING
+};
 mode MODE = FILLING;
 
 #define MEASURE_SET_POINT .25 // pressure setpoint when in MEASURING mode
-#define FILLED_ANGLE 183.3   // angle where filling will stop and exhaust begins
+#define FILLED_ANGLE 183.3    // angle where filling will stop and exhaust begins
+float fillingLimit = 192.;    // when the angel is less than this, transition to filling
 
-//#define TESTING
+// #define TESTING
 #include "BMP280_TempPres.h"
 
 #include "utilities.h"
@@ -52,32 +61,39 @@ void restart()
   ip = i;
 }
 
-float stretchLimit = 190.; // when the angel is less than this, transition to filling
-
 void stop()
 { // Balloon is done stretching
-  if (MODE == WAITING) return;
+  if (MODE == WAITING)
+    return;
   Serial.println(" Balloon is done stretching - reducing pressure to .25 ");
+  digitalWrite(RELAY_PIN, LOW);  // turn off the pump
+  digitalWrite(LED_BUILTIN, LOW);
+  delay(19000); // let the pressure equilibrate
   float press = pressure(); // Read the pressure
+  Serial.print(" Current presure reading: press= ");
+  Serial.println(press);
   while (press >= measureSetPoint)
   {
-    digitalWrite(EXHAUST_VALVE, HIGH);  // Open exhaust valve
+    digitalWrite(EXHAUST_VALVE, HIGH); // Open exhaust valve
     digitalWrite(LED_BUILTIN, HIGH);
     delay(10000);
-    digitalWrite(EXHAUST_VALVE, LOW);  
+    digitalWrite(EXHAUST_VALVE, LOW);
     digitalWrite(LED_BUILTIN, LOW);
-    delay(4000);     // Let the pressure equilibrate
+    delay(20000); // Let the pressure equilibrate
     press = pressure();
+    Serial.print(" Current presure reading: press= ");
     Serial.println(press);
   }
-  Serial.print("**** Setpoint is reduced to " + String(measureSetPoint) + " **** Current Pressure ");
-  Serial.println(press);
-  Serial.println("**** Output frequency 5 minutes ****");
-  interval = 5 * 60000; // slow down the output
-  MODE = WAITING; // pressure is down and waiting to pull out the tube
-  Serial.print( " Changing to ");
-  printMode();
 
+  Serial.print(" pressure is less than measuring setpoint ");
+  Serial.println(measureSetPoint);
+  Serial.print("Setpoint is reduced to " + String(measureSetPoint) + "  Current Pressure ");
+   Serial.println(press);
+  Serial.println(" Output frequency 5 minutes ****");
+  interval = 5 * 60000; // slow down the output
+  MODE = WAITING;       // pressure is down and waiting to pull out the tube
+  Serial.print(" Changing to ");
+  printMode();
 }
 
 // ********************************* Setup *****************************************************
@@ -111,11 +127,11 @@ void setup()
   Serial.print(" The maximum pressure is set to  ");
   Serial.println(maxSetPoint);
 
-   for (int i = 0; i < ArraySize; ++i)
+  for (int i = 0; i < ArraySize; ++i)
   {
     Duration[i] *= speedUp;
   }
-  
+
   if (ip == ArraySize)
   {
     Serial.println("DANGER DANGER current pressure is too high - Something is wrong.");
@@ -138,22 +154,22 @@ void setup()
       else if (cmdInput.startsWith(String('e')))
       { // exhaust until measuringSetPoint to check for leaks
         MODE = EXHAUSTING;
-        stop(); // 
+        stop(); //
         break;
       }
       else if (cmdInput.startsWith(String('m')))
       { // Measuring angle
         MODE = MEASURING;
-         Serial.print( " Changing to ");
-         printMode();
-        off = true; // turn off the pump while measuring angle
+        Serial.print(" Changing to ");
+        printMode();
+        off = true;           // turn off the pump while measuring angle
         interval = 5 * 60000; // slow down the output
         break;
       }
       else if (cmdInput.startsWith(String('f')))
       { // initial filling
         MODE = FILLING;
-        Serial.print( " Changing to ");
+        Serial.print(" Changing to ");
         printMode();
         break;
       }
@@ -187,40 +203,55 @@ float angleAvg = 0;
 
 void loop()
 {
+  float output = 0.;
+  unsigned long currentMillis = millis();
+  float stpt = 0.;
   float press = pressure(); // Read the pressure
   float angle = readAngle();
-  Serial.println(press);
+  // Serial.print(" Current presure reading: press= ");
+  // Serial.print(pressure());
+  //  Serial.print(" Ang = ");
+  //  Serial.println(angle);
 
-    if (printAngle() > 0 ) // check the size
-    {    
-      MODE = EXHAUSTING;                         // Balloon is done stretching
-      Serial.print( " Changing to ");
-      printMode();
-      stop();
-    }
-
-  if ( angle < stretchLimit && MODE == FILLING) 
+  if ((angle < FILLED_ANGLE && MODE == STRETCHING)) // check the size
   {
-    MODE = STRETCHING;
-    Serial.print( " Changing to ");
+    Serial.print(angle);
+    Serial.print(" is less than filling limit ");
+    Serial.println(FILLED_ANGLE);
+    MODE = EXHAUSTING; // Balloon is done stretching
+    Serial.print(" Changing to ");
     printMode();
-    restart();
+    stop();
   }
 
-  setpoint = setPointFunc();
-  // Serial.print(" Loop Setpoint = ");
-  // Serial.println(setpoint);
+  if (angle < fillingLimit && MODE == FILLING)
+  {
+    Serial.print(angle);
+    Serial.print(" is less than filling limit ");
+    Serial.println(fillingLimit);
+    MODE = STRETCHING;
+    Serial.print(" Changing to ");
+    printMode();
+    delay(5000); // let the pressure equilibrate
+    restart();
+  }
+  if (MODE == STRETCHING || MODE == WAITING )
+  {
+    setpoint = setPointFunc();
+    // Serial.print(" Loop Setpoint = ");
+    // Serial.println(setpoint);
 
-  input = pmap(press); // Convert the reading
-  float stpt = pmap(setpoint);
-  float output = myPID.Run(input); // call the controller function
-  myPID.Start(input,               // current input
-              output,              // current output
-              stpt);               // new setpoint
-  unsigned long currentMillis = millis();
+    input = pmap(press); // Convert the reading
+    stpt = pmap(setpoint);
+    output = myPID.Run(input); // call the controller function
+    myPID.Start(input,         // current input
+                output,        // current output
+                stpt);         // new setpoint
+    currentMillis = millis();
+  }
+  if (MODE == MEASURING || MODE == EXHAUSTING)
+    output = 0.; // turn off the pump
 
-  if (MODE == MEASURING) output = 0.; // turn off the pump
- 
   currentOut = output / WindowSize;
 
   // average the output over the interval
@@ -232,9 +263,13 @@ void loop()
 
   if (currentMillis - previousMillis >= interval)
   {
+    int hrs = (currentMillis / (1000 * 3600));
+    int mins = (currentMillis / (1000 * 60)) % 60;
     previousMillis = currentMillis;
     Serial.print(" Angle %  ");
-    Serial.print(angleAvg / iPnt);
+    Serial.print(100.+angleAvg / iPnt);
+    Serial.print(", ");
+    Serial.print(readAngle());
     Serial.print(",");
     Serial.print(" Setpoint ");
     Serial.print(setPointAvg * 100 / iPnt);
@@ -248,10 +283,11 @@ void loop()
     Serial.print(temperature);
     Serial.print(",");
     Serial.print(" Time ");
-    Serial.print(currentMillis / (1000. * 3600.));
+    Serial.print(String(hrs) + ":" + String(mins));
     Serial.print(",");
     Serial.print(" Index ");
     Serial.print(ip);
+    printMode();
 
     pressAvg = 0;
     setPointAvg = 0;
@@ -272,7 +308,8 @@ void loop()
   }
   float diff = (float)(millis() - windowStartTime);
 
-  if (MODE == FILLING) diff = -1.;
+  if (MODE == FILLING)
+    diff = -1.;
 
   if (output > diff)
   {
