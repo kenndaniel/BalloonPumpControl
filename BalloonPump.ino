@@ -76,7 +76,7 @@ void stop()
   {
     digitalWrite(EXHAUST_VALVE, HIGH); // Open exhaust valve
     digitalWrite(LED_BUILTIN, HIGH);
-    delay(10000);
+    delay(15000);
     digitalWrite(EXHAUST_VALVE, LOW);
     digitalWrite(LED_BUILTIN, LOW);
     delay(20000); // Let the pressure equilibrate
@@ -92,6 +92,7 @@ void stop()
   Serial.println(" Output frequency 5 minutes ****");
   interval = 5 * 60000; // slow down the output
   MODE = WAITING;       // pressure is down and waiting to pull out the tube
+  restart();
   Serial.print(" Changing to ");
   printMode();
 }
@@ -199,7 +200,9 @@ float currentOut = 0.;
 float previousOut = 0.;
 int iPnt = 0, iCnt = 0;
 float pressAvg = 0, setPointAvg = 0, outputAvg = 0;
+float angleAvgPct = 0;
 float angleAvg = 0;
+float angleAvg2 = 200.;
 
 void loop()
 {
@@ -224,9 +227,9 @@ void loop()
     stop();
   }
 
-  if (angle < fillingLimit && MODE == FILLING)
+  if (angleAvg2 < fillingLimit && MODE == FILLING)
   {
-    Serial.print(angle);
+    Serial.print(angleAvg2);
     Serial.print(" is less than filling limit ");
     Serial.println(fillingLimit);
     MODE = STRETCHING;
@@ -258,18 +261,20 @@ void loop()
   outputAvg += currentOut;
   setPointAvg += setpoint;
   pressAvg += press;
-  angleAvg += printAngle();
+  angleAvgPct += printAngle();
+  angleAvg += angle;
   iPnt++;
 
   if (currentMillis - previousMillis >= interval)
   {
+    angleAvg2 = angleAvg / iPnt;
     int hrs = (currentMillis / (1000 * 3600));
     int mins = (currentMillis / (1000 * 60)) % 60;
     previousMillis = currentMillis;
     Serial.print(" Angle %  ");
     Serial.print(100.+angleAvg / iPnt);
     Serial.print(", ");
-    Serial.print(readAngle());
+    Serial.print(angleAvg2);
     Serial.print(",");
     Serial.print(" Setpoint ");
     Serial.print(setPointAvg * 100 / iPnt);

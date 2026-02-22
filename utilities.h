@@ -116,13 +116,14 @@ float setPointFunc()
     return .5;
     #endif
 
-    if (ip == ArraySize - 1)
-        return setPoint[ArraySize - 1];
-
     if (MODE == EXHAUSTING || MODE == WAITING)
     {
         return measureSetPoint;
     }
+
+    if (ip == ArraySize - 1)
+        return setPoint[ArraySize - 1];
+
 
     if (firstTime == true)
     {
